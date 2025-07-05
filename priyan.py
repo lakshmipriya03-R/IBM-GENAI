@@ -1,52 +1,51 @@
 import streamlit as st
-from transformers import GPT2LMHeadModel, GPT2Tokenizer
+from transformers import AutoTokenizer, AutoModelForCausalLM
 import torch
 
-# Load GPT-2 model and tokenizer once
+# Load model safely once
 @st.cache_resource
 def load_model():
-    tokenizer = GPT2Tokenizer.from_pretrained("gpt2")
-    model = GPT2LMHeadModel.from_pretrained("gpt2")
+    tokenizer = AutoTokenizer.from_pretrained("distilgpt2")
+    model = AutoModelForCausalLM.from_pretrained("distilgpt2")
     model.eval()
     return tokenizer, model
 
 tokenizer, model = load_model()
 
-# 🔥 Email Generation Logic
-def generate_email(prompt, max_length=100):
+# Generate polite email
+def generate_email(task, max_length=100):
+    prompt = (
+        f"Write a polite professional email for the following task:\n"
+        f"{task.strip()}\n\nEmail:\n"
+    )
     input_ids = tokenizer.encode(prompt, return_tensors="pt")
 
     with torch.no_grad():
         output = model.generate(
             input_ids,
             max_length=max_length,
-            num_return_sequences=1,
-            no_repeat_ngram_size=2,
             num_beams=5,
+            no_repeat_ngram_size=2,
             early_stopping=True,
             pad_token_id=tokenizer.eos_token_id
         )
 
-    decoded = tokenizer.decode(output[0], skip_special_tokens=True)
+    result = tokenizer.decode(output[0], skip_special_tokens=True)
+    final = result.replace(prompt, "").strip()
+    return final if final else "Sorry, couldn't generate a useful email."
 
-    # Clean up output
-    cleaned = decoded.replace(prompt, "").strip()
-    paragraph = cleaned.replace("\n", " ").strip()
-    return f"{paragraph}" if paragraph else "Sorry, couldn't generate a meaningful email."
+# Streamlit UI
+st.set_page_config(page_title="Smart Email Generator", layout="centered")
+st.title("📨 Smart Email Generator (Polite & Professional)")
+st.markdown("Enter your task to generate a professional email instantly.")
 
-# 🎨 Streamlit UI
-st.set_page_config(page_title="Smart Email Generator", page_icon="📨", layout="centered")
-st.title("📨 Smart Email Generator (GPT-2 Accurate)")
-st.markdown("Enter your bullet point or task to generate a professional email.")
-
-user_input = st.text_area("📝 Enter your bullet point or task:", height=100)
+user_input = st.text_area("📝 Enter your task or message:")
 
 if st.button("Generate Email"):
     if not user_input.strip():
-        st.warning("Please enter a valid task or bullet point.")
+        st.warning("Please enter something.")
     else:
         with st.spinner("Generating email..."):
-            prompt = f"Write a professional email for the following task: {user_input.strip()}"
-            email = generate_email(prompt)
-        st.markdown("### 📬 Generated Email:")
-        st.success(email)
+            response = generate_email(user_input)
+        st.success("📬 Generated Email:")
+        st.write(response)
