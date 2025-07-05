@@ -1,28 +1,32 @@
 import streamlit as st
-from transformers import pipeline
+from transformers import pipeline, AutoModelForSeq2SeqLM, AutoTokenizer
 
 @st.cache_resource
 def load_model():
-    return pipeline("text-generation", model="mistralai/Mistral-7B-Instruct-v0.1", device_map="auto")
+    tokenizer = AutoTokenizer.from_pretrained("google/flan-t5-small")
+    model = AutoModelForSeq2SeqLM.from_pretrained("google/flan-t5-small")
+    pipe = pipeline("text2text-generation", model=model, tokenizer=tokenizer)
+    return pipe
 
-generator = load_model()
+pipe = load_model()
 
 def generate_email(task):
-    prompt = f"[INST] Write a professional and polite email for the task: {task} [/INST]"
-    output = generator(prompt, max_new_tokens=256, do_sample=True, temperature=0.7)
-    return output[0]["generated_text"].split("[/INST]")[-1].strip()
+    prompt = f"Write a polite, professional email for the following task: {task}"
+    response = pipe(prompt, max_new_tokens=200)[0]['generated_text']
+    return response.strip()
 
-st.set_page_config(page_title="Smart Email Generator", page_icon="📧")
-st.title("📨 Smart Email Generator (Mistral Instruct)")
-st.markdown("Enter a task or situation and get a clean, professional email.")
+# Streamlit UI
+st.set_page_config(page_title="Smart Email Generator", layout="centered")
+st.title("📨 Smart Email Generator (FLAN-T5 Small)")
+st.markdown("Enter your task, situation, or bullet point and get a professional email.")
 
-task_input = st.text_area("📝 Task or situation (e.g., 'I'm sick', 'Need leave'):")
+task = st.text_area("📝 Enter your task:")
 
 if st.button("Generate Email"):
-    if not task_input.strip():
-        st.warning("Please enter something.")
+    if not task.strip():
+        st.warning("Please enter a task.")
     else:
-        with st.spinner("Generating..."):
-            result = generate_email(task_input)
+        with st.spinner("Generating email..."):
+            email = generate_email(task)
         st.markdown("### 📬 Generated Email:")
-        st.success(result)
+        st.success(email)
