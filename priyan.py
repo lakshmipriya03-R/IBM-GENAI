@@ -1,32 +1,31 @@
 import streamlit as st
-from transformers import pipeline, AutoModelForSeq2SeqLM, AutoTokenizer
+from transformers import pipeline
 
+# Cache and load FLAN-T5 model
 @st.cache_resource
 def load_model():
-    tokenizer = AutoTokenizer.from_pretrained("google/flan-t5-small")
-    model = AutoModelForSeq2SeqLM.from_pretrained("google/flan-t5-small")
-    pipe = pipeline("text2text-generation", model=model, tokenizer=tokenizer)
-    return pipe
+    return pipeline("text2text-generation", model="google/flan-t5-small")
 
-pipe = load_model()
+model = load_model()
 
+# Generate Email Function
 def generate_email(task):
-    prompt = f"Write a polite, professional email for the following task: {task}"
-    response = pipe(prompt, max_new_tokens=200)[0]['generated_text']
-    return response.strip()
+    prompt = f"Write a professional, polite email for the task: {task}"
+    result = model(prompt, max_new_tokens=256)[0]['generated_text']
+    return result.strip()
 
 # Streamlit UI
-st.set_page_config(page_title="Smart Email Generator", layout="centered")
-st.title("📨 Smart Email Generator (FLAN-T5 Small)")
-st.markdown("Enter your task, situation, or bullet point and get a professional email.")
+st.set_page_config(page_title="Smart Email Generator", page_icon="📨")
+st.title("📨 Smart Email Generator (FLAN-T5)")
+st.markdown("Enter your situation or task and generate a professional email.")
 
-task = st.text_area("📝 Enter your task:")
+user_input = st.text_area("📝 Enter your task (e.g., 'I'm sick', 'Need leave'):")
 
 if st.button("Generate Email"):
-    if not task.strip():
-        st.warning("Please enter a task.")
+    if not user_input.strip():
+        st.warning("Please enter something.")
     else:
-        with st.spinner("Generating email..."):
-            email = generate_email(task)
+        with st.spinner("Generating..."):
+            email = generate_email(user_input)
         st.markdown("### 📬 Generated Email:")
         st.success(email)
